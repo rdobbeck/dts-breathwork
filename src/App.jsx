@@ -1182,8 +1182,19 @@ export default function App() {
         @keyframes orbGlow { 0%,100% { opacity:.5; transform: scale(1) } 50% { opacity:.8; transform: scale(1.05) } }
         @keyframes glassShine { 0% { transform: translateX(-100%) rotate(15deg) } 100% { transform: translateX(300%) rotate(15deg) } }
 
+        /* ═══ REDUCED MOTION SUPPORT ═══ */
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+        }
+
         /* ═══ INTERACTIVE GLASS COMPONENTS ═══ */
         .ex-card {
+          min-height: 44px;
           padding: 22px 26px;
           cursor: pointer;
           transition: all .4s cubic-bezier(.4,0,.2,1);
@@ -1192,6 +1203,11 @@ export default function App() {
           border-color: rgba(78,205,196,.18) !important;
           transform: translateY(-2px);
           box-shadow: 0 16px 48px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.1), 0 0 50px rgba(78,205,196,.04);
+        }
+        .ex-card:focus-visible {
+          outline: none;
+          border-color: rgba(78,205,196,.3) !important;
+          box-shadow: 0 0 0 3px rgba(78,205,196,.15), 0 16px 48px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.1);
         }
         .tag {
           display: inline-block;
@@ -1205,6 +1221,8 @@ export default function App() {
           -webkit-backdrop-filter: blur(8px);
         }
         .btn {
+          min-height: 44px;
+          min-width: 44px;
           padding: 14px 32px;
           border-radius: 14px;
           font-family: inherit;
@@ -1228,8 +1246,15 @@ export default function App() {
           box-shadow: 0 4px 24px rgba(78,205,196,.08), inset 0 1px 0 rgba(255,255,255,.08);
           transform: translateY(-1px);
         }
-        .btn-sm { padding: 8px 16px; font-size: 11px; border-radius: 10px; }
+        .btn:focus-visible {
+          outline: none;
+          border-color: rgba(78,205,196,.5);
+          box-shadow: 0 0 0 3px rgba(78,205,196,.2), 0 4px 24px rgba(78,205,196,.08), inset 0 1px 0 rgba(255,255,255,.08);
+        }
+        .btn-sm { min-height: 44px; min-width: 44px; padding: 12px 20px; font-size: 11px; border-radius: 10px; }
         .btn-start {
+          min-height: 44px;
+          min-width: 44px;
           padding: 18px 56px;
           border: 1.5px solid rgba(78,205,196,.25);
           border-radius: 18px;
@@ -1261,6 +1286,11 @@ export default function App() {
           box-shadow: 0 12px 56px rgba(78,205,196,.15), inset 0 1px 0 rgba(78,205,196,.15);
           transform: scale(1.02);
         }
+        .btn-start:focus-visible {
+          outline: none;
+          border-color: rgba(78,205,196,.6);
+          box-shadow: 0 0 0 4px rgba(78,205,196,.25), 0 12px 56px rgba(78,205,196,.15), inset 0 1px 0 rgba(78,205,196,.15);
+        }
         .dot { width: 6px; height: 6px; border-radius: 50%; transition: all .3s; flex-shrink: 0; }
         .phase-anim { animation: fadeUp .3s ease-out; }
         .pb-badge {
@@ -1273,22 +1303,33 @@ export default function App() {
           border: 1px solid rgba(255,217,61,.12);
         }
         .diff-pill {
-          padding: 7px 16px; border-radius: 100px; font-size: 11px; font-weight: 600;
+          min-height: 44px;
+          padding: 12px 20px; border-radius: 100px; font-size: 11px; font-weight: 600;
           letter-spacing: .5px; cursor: pointer; transition: all .4s cubic-bezier(.4,0,.2,1);
           border: 1px solid transparent; font-family: inherit;
           backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         }
         .diff-pill:hover { transform: translateY(-1px); }
+        .diff-pill:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(78,205,196,.2);
+        }
         .sound-pill {
-          padding: 7px 14px; border-radius: 100px; font-size: 11px;
+          min-height: 44px;
+          padding: 12px 18px; border-radius: 100px; font-size: 11px;
           cursor: pointer; transition: all .4s cubic-bezier(.4,0,.2,1);
           border: 1px solid transparent; font-family: inherit;
           display: flex; align-items: center; gap: 5px;
           backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         }
+        .sound-pill:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(78,205,196,.2);
+        }
         .ig-btn {
+          min-height: 44px;
           display: inline-flex; align-items: center; gap: 8px;
-          padding: 12px 24px; border-radius: 14px;
+          padding: 14px 28px; border-radius: 14px;
           background: linear-gradient(135deg, rgba(131,58,180,.6), rgba(253,29,29,.6), rgba(252,176,69,.6));
           backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
           color: #fff; font-family: inherit; font-size: 12px; font-weight: 600;
@@ -1298,8 +1339,12 @@ export default function App() {
           box-shadow: 0 4px 24px rgba(253,29,29,.15);
         }
         .ig-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 40px rgba(253,29,29,.25); }
+        .ig-btn:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(253,29,29,.3), 0 8px 40px rgba(253,29,29,.25);
+        }
         .dur-btn {
-          width: 34px; height: 34px; border-radius: 10px;
+          min-width: 44px; min-height: 44px; border-radius: 10px;
           background: rgba(255,255,255,.03);
           backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
           border: 1px solid rgba(255,255,255,.06); color: rgba(255,255,255,.6);
@@ -1308,12 +1353,23 @@ export default function App() {
           transition: all .3s; box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
         }
         .dur-btn:hover { border-color: rgba(78,205,196,.3); color: #4ecdc4; }
+        .dur-btn:focus-visible {
+          outline: none;
+          border-color: rgba(78,205,196,.5);
+          box-shadow: 0 0 0 3px rgba(78,205,196,.2), inset 0 1px 0 rgba(255,255,255,.04);
+        }
         .act-btn {
-          padding: 4px 8px; border-radius: 6px; border: none;
+          min-height: 44px; min-width: 44px;
+          padding: 12px 16px; border-radius: 6px; border: none;
           background: transparent; color: rgba(255,255,255,.25);
           font-size: 11px; cursor: pointer; font-family: inherit; transition: all .2s;
         }
         .act-btn:hover { color: #fff; background: rgba(255,255,255,.05); }
+        .act-btn:focus-visible {
+          outline: none;
+          color: #fff;
+          box-shadow: 0 0 0 2px rgba(78,205,196,.2);
+        }
         .b-phase-row {
           display: flex; align-items: center; gap: 8px;
           padding: 10px 12px; border-radius: 12px;
@@ -1325,15 +1381,26 @@ export default function App() {
         .b-phase-row:hover { border-color: rgba(255,255,255,.08); background: rgba(255,255,255,.03); }
         /* ═══ POSITIONAL LAB ═══ */
         .menu-tab {
-          padding: 10px 20px; border-radius: 12px; font-size: 12px; font-weight: 600;
+          min-height: 44px;
+          padding: 12px 24px; border-radius: 12px; font-size: 12px; font-weight: 600;
           letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
           border: 1px solid transparent; font-family: inherit; transition: all .3s;
           backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
         }
+        .menu-tab:focus-visible {
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(78,205,196,.2);
+        }
         .pos-card {
+          min-height: 44px;
           padding: 18px 20px; cursor: pointer; transition: all .4s cubic-bezier(.4,0,.2,1);
         }
         .pos-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,.12); }
+        .pos-card:focus-visible {
+          outline: none;
+          border-color: rgba(78,205,196,.3);
+          box-shadow: 0 0 0 3px rgba(78,205,196,.15);
+        }
         .pos-badge {
           display: inline-flex; align-items: center; gap: 4px;
           padding: 3px 10px; border-radius: 100px; font-size: 9px; font-weight: 600;
@@ -1352,6 +1419,38 @@ export default function App() {
           animation: posAlertIn .3s ease-out;
         }
         .via-icon { display: inline-flex; align-items: center; gap: 3px; font-size: 9px; letter-spacing: 1px; text-transform: uppercase; opacity: 0.4; }
+
+        /* ═══ LOADING & EMPTY STATES ═══ */
+        @keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+        .skeleton {
+          background: linear-gradient(90deg, rgba(255,255,255,.02) 25%, rgba(255,255,255,.05) 50%, rgba(255,255,255,.02) 75%);
+          background-size: 1000px 100%;
+          animation: shimmer 2s infinite;
+          border-radius: 12px;
+        }
+        .empty-state {
+          display: flex; flex-direction: column; align-items: center; justify-content: center;
+          padding: 48px 24px; text-align: center;
+          background: rgba(255,255,255,.015);
+          border: 1px dashed rgba(255,255,255,.06);
+          border-radius: 16px;
+        }
+        .empty-state-icon {
+          width: 64px; height: 64px; border-radius: 50%;
+          background: rgba(78,205,196,.05);
+          border: 2px dashed rgba(78,205,196,.15);
+          display: flex; align-items: center; justify-content: center;
+          margin-bottom: 16px; font-size: 28px; opacity: 0.4;
+        }
+        .empty-state-title {
+          font-family: var(--font-display); font-size: 16px; font-weight: 600;
+          color: rgba(255,255,255,.5); margin-bottom: 8px; letter-spacing: .5px;
+        }
+        .empty-state-desc {
+          font-size: 13px; color: rgba(255,255,255,.25);
+          line-height: 1.6; max-width: 320px;
+        }
+
         @media(max-width:480px) {
           .timer-num { font-size: 48px !important; }
           .ring-wrap { width: 260px !important; height: 260px !important; }
@@ -1642,9 +1741,10 @@ export default function App() {
               <div style={{ fontSize: 12, color: "#4ecdc4", fontFamily: "var(--font-display)", fontWeight: 500 }}>Total: {fmt(builderTotal)}</div>
             </div>
             {bPhases.length === 0 ? (
-              <div className="lg-glass-sm" style={{ padding: "40px 20px", textAlign: "center", borderStyle: "dashed", borderColor: "rgba(255,255,255,.06)" }}>
-                <div style={{ fontSize: 13, color: "rgba(255,255,255,.2)", marginBottom: 4 }}>No phases yet</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,.12)" }}>Select a type above and tap + Add</div>
+              <div className="empty-state">
+                <div className="empty-state-icon">➕</div>
+                <div className="empty-state-title">No phases yet</div>
+                <div className="empty-state-desc">Select a breathing type above and tap "+ Add" to build your custom protocol</div>
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 400, overflowY: "auto" }}>
