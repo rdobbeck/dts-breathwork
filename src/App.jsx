@@ -830,10 +830,6 @@ export default function App() {
     try { return localStorage.getItem("breathwod_voice_id") || "en-f"; }
     catch { return "en-f"; }
   });
-  const [elevenLabsKey, setElevenLabsKey] = useState(() => {
-    try { return localStorage.getItem("breathwod_elevenlabs_key") || ""; }
-    catch { return ""; }
-  });
   const [maxHR, setMaxHR] = useState(190);
   const audioCache = useRef(new Map());
   const [si, setSi] = useState(0);
@@ -890,70 +886,45 @@ export default function App() {
     try { localStorage.setItem("breathwod_voice_id", selectedVoice); }
     catch {}
   }, [selectedVoice]);
-  useEffect(() => {
-    try { localStorage.setItem("breathwod_elevenlabs_key", elevenLabsKey); }
-    catch {}
-  }, [elevenLabsKey]);
 
   const speak = useCallback((text) => {
     if (!voiceCues || !text) return;
 
-    // Use ElevenLabs only if API key is provided
-    if (elevenLabsKey && elevenLabsKey.trim().length > 0) {
-      const voice = VOICES.find(v => v.id === selectedVoice) || VOICES[1];
-      const cacheKey = `${voice.id}:${text}`;
+    const voice = VOICES.find(v => v.id === selectedVoice) || VOICES[1];
+    const cacheKey = `${voice.id}:${text}`;
 
-      // Check cache first
-      if (audioCache.current.has(cacheKey)) {
-        const audio = audioCache.current.get(cacheKey);
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-        return;
-      }
+    // Check cache first
+    if (audioCache.current.has(cacheKey)) {
+      const audio = audioCache.current.get(cacheKey);
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+      return;
+    }
 
-      // Fetch from ElevenLabs
-      fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice.elevenLabsId}`, {
-        method: 'POST',
-        headers: {
-          'Accept': 'audio/mpeg',
-          'Content-Type': 'application/json',
-          'xi-api-key': elevenLabsKey
-        },
-        body: JSON.stringify({
-          text: text,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: {
-            stability: 0.5,
-            similarity_boost: 0.75,
-            style: 0.0,
-            use_speaker_boost: true
-          }
-        })
+    // Use backend proxy for ElevenLabs (no key needed from user)
+    fetch('/api/tts', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: text,
+        voiceId: voice.elevenLabsId
       })
-      .then(response => {
-        if (!response.ok) throw new Error('ElevenLabs API error');
-        return response.blob();
-      })
-      .then(audioBlob => {
-        const audioUrl = URL.createObjectURL(audioBlob);
-        const audio = new Audio(audioUrl);
-        audioCache.current.set(cacheKey, audio);
-        audio.play().catch(() => {});
-      })
-      .catch(error => {
-        console.error('ElevenLabs error:', error);
-        // Fallback to browser TTS
-        if ('speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.rate = 1.0;
-          utterance.pitch = 1.0;
-          utterance.volume = 1.0;
-          window.speechSynthesis.speak(utterance);
-        }
-      });
-    } else {
-      // Default: Use browser TTS (no API key needed)
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('TTS API error');
+      return response.blob();
+    })
+    .then(audioBlob => {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audioCache.current.set(cacheKey, audio);
+      audio.play().catch(() => {});
+    })
+    .catch(error => {
+      console.error('TTS error:', error);
+      // Fallback to browser TTS
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
@@ -962,8 +933,8 @@ export default function App() {
         utterance.volume = 1.0;
         window.speechSynthesis.speak(utterance);
       }
-    }
-  }, [voiceCues, elevenLabsKey, selectedVoice]);
+    });
+  }, [voiceCues, selectedVoice]);
 
   const allExercises = [...BUILT_IN, ...customs];
 
@@ -1692,22 +1663,6 @@ export default function App() {
                             padding: "10px 12px",
                           }}>{v.name}</button>
                         ))}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.3)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>
-                        ElevenLabs API Key <span style={{ color: "rgba(255,255,255,.15)", fontWeight: 400 }}>(Optional - for premium voices)</span>
-                      </div>
-                      <input
-                        className="lg-glass-input"
-                        type="password"
-                        placeholder="Leave blank to use free browser voice"
-                        value={elevenLabsKey}
-                        onChange={(e) => setElevenLabsKey(e.target.value)}
-                        style={{ fontSize: 12 }}
-                      />
-                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.15)", marginTop: 6, lineHeight: 1.4 }}>
-                        Free tier: Browser voice (works immediately). Premium: Natural AI voices from elevenlabs.io.
                       </div>
                     </div>
                   </>
