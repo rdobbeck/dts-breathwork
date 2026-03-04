@@ -1,5 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
+// ── Voice Options (ElevenLabs) ──
+const VOICES = [
+  { id: "en-m", name: "English Male", lang: "en", elevenLabsId: "pNInz6obpgDQGcFmaJgB" }, // Adam
+  { id: "en-f", name: "English Female", lang: "en", elevenLabsId: "EXAVITQu4vr4xnSDxMaL" }, // Bella
+  { id: "es-m", name: "Spanish Male", lang: "es", elevenLabsId: "VR6AewLTigWG4xSOukaG" }, // Arnold
+  { id: "es-f", name: "Spanish Female", lang: "es", elevenLabsId: "ThT5KcBeYPX3keUQqHPh" }, // Dorothy
+  { id: "ru-m", name: "Russian Male", lang: "ru", elevenLabsId: "N2lVS1w4EtoT3dr4eOWO" }, // Callum
+  { id: "ru-f", name: "Russian Female", lang: "ru", elevenLabsId: "jBpfuIE2acCO8z3wKNLl" }, // Gigi
+];
+
 // ── Data ──
 const BUILT_IN = [
   {
@@ -812,7 +822,20 @@ export default function App() {
   const [selEx, setSelEx] = useState(null);
   const [diffIdx, setDiffIdx] = useState(1);
   const [soundIdx, setSoundIdx] = useState(0);
+  const [voiceCues, setVoiceCues] = useState(() => {
+    try { return localStorage.getItem("breathwod_voice") === "true"; }
+    catch { return false; }
+  });
+  const [selectedVoice, setSelectedVoice] = useState(() => {
+    try { return localStorage.getItem("breathwod_voice_id") || "en-f"; }
+    catch { return "en-f"; }
+  });
+  const [elevenLabsKey, setElevenLabsKey] = useState(() => {
+    try { return localStorage.getItem("breathwod_elevenlabs_key") || ""; }
+    catch { return ""; }
+  });
   const [maxHR, setMaxHR] = useState(190);
+  const audioCache = useRef(new Map());
   const [si, setSi] = useState(0);
   const [tr, setTr] = useState(0);
   const [running, setRunning] = useState(false);
@@ -859,6 +882,88 @@ export default function App() {
   useEffect(() => { soundRef.current = sound; }, [sound]);
   useEffect(() => { hrmRef.current = hrm; }, [hrm]);
   useEffect(() => { sound.setTheme(SOUND_THEMES[soundIdx].id); }, [soundIdx, sound]);
+  useEffect(() => {
+    try { localStorage.setItem("breathwod_voice", voiceCues); }
+    catch {}
+  }, [voiceCues]);
+  useEffect(() => {
+    try { localStorage.setItem("breathwod_voice_id", selectedVoice); }
+    catch {}
+  }, [selectedVoice]);
+  useEffect(() => {
+    try { localStorage.setItem("breathwod_elevenlabs_key", elevenLabsKey); }
+    catch {}
+  }, [elevenLabsKey]);
+
+  const speak = useCallback((text) => {
+    if (!voiceCues || !text) return;
+
+    // Use ElevenLabs only if API key is provided
+    if (elevenLabsKey && elevenLabsKey.trim().length > 0) {
+      const voice = VOICES.find(v => v.id === selectedVoice) || VOICES[1];
+      const cacheKey = `${voice.id}:${text}`;
+
+      // Check cache first
+      if (audioCache.current.has(cacheKey)) {
+        const audio = audioCache.current.get(cacheKey);
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+        return;
+      }
+
+      // Fetch from ElevenLabs
+      fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice.elevenLabsId}`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': elevenLabsKey
+        },
+        body: JSON.stringify({
+          text: text,
+          model_id: 'eleven_multilingual_v2',
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.75,
+            style: 0.0,
+            use_speaker_boost: true
+          }
+        })
+      })
+      .then(response => {
+        if (!response.ok) throw new Error('ElevenLabs API error');
+        return response.blob();
+      })
+      .then(audioBlob => {
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audioCache.current.set(cacheKey, audio);
+        audio.play().catch(() => {});
+      })
+      .catch(error => {
+        console.error('ElevenLabs error:', error);
+        // Fallback to browser TTS
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
+          utterance.volume = 1.0;
+          window.speechSynthesis.speak(utterance);
+        }
+      });
+    } else {
+      // Default: Use browser TTS (no API key needed)
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+  }, [voiceCues, elevenLabsKey, selectedVoice]);
 
   const allExercises = [...BUILT_IN, ...customs];
 
@@ -933,6 +1038,14 @@ export default function App() {
         setTr(rounds[nx].d);
         soundRef.current.phaseChange();
         haptic("phase");
+        // Voice cue for next phase
+        const nextPhase = rounds[nx];
+        if (nextPhase) {
+          let cue = nextPhase.p;
+          // Add positional cue if available
+          if (nextPhase.cue) cue = nextPhase.cue;
+          speak(cue);
+        }
       } else {
         if (cur >= 2 && cur <= 4) { soundRef.current.countdown(); haptic("tick"); }
         trRef.current = cur - 1;
@@ -1000,6 +1113,12 @@ export default function App() {
           runRef.current = true;
           pauseRef.current = false;
           hrmRef.current.clearHistory();
+          // Voice cue for first phase
+          if (sr[0]) {
+            let cue = sr[0].p;
+            if (sr[0].cue) cue = sr[0].cue;
+            speak(cue);
+          }
           setScreen("timer");
           soundRef.current.phaseChange();
           haptic("phase");
@@ -1540,6 +1659,59 @@ export default function App() {
                     ))}
                   </div>
                 </div>
+                <div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,.3)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Voice Cues</div>
+                  <button className="btn btn-sm" onClick={() => setVoiceCues(!voiceCues)} style={{
+                    background: voiceCues ? "rgba(78,205,196,.08)" : "rgba(255,255,255,.02)",
+                    color: voiceCues ? "#4ecdc4" : "rgba(255,255,255,.3)",
+                    borderColor: voiceCues ? "rgba(78,205,196,.18)" : "rgba(255,255,255,.05)",
+                  }}>
+                    {voiceCues ? "✓ Enabled" : "Disabled"}
+                  </button>
+                </div>
+                {voiceCues && (
+                  <>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <div style={{ fontSize: 10, color: "rgba(255,255,255,.3)", letterSpacing: 2, textTransform: "uppercase" }}>Voice Selection</div>
+                        <button className="btn-sm" onClick={() => speak("Inhale")} style={{
+                          fontSize: 9,
+                          padding: "6px 12px",
+                          background: "rgba(78,205,196,.05)",
+                          borderColor: "rgba(78,205,196,.15)",
+                          color: "#4ecdc4",
+                        }}>Test Voice</button>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                        {VOICES.map((v) => (
+                          <button key={v.id} className="sound-pill" onClick={() => setSelectedVoice(v.id)} style={{
+                            background: v.id === selectedVoice ? "rgba(78,205,196,.08)" : "rgba(255,255,255,.02)",
+                            color: v.id === selectedVoice ? "#4ecdc4" : "rgba(255,255,255,.3)",
+                            borderColor: v.id === selectedVoice ? "rgba(78,205,196,.18)" : "rgba(255,255,255,.05)",
+                            fontSize: 10,
+                            padding: "10px 12px",
+                          }}>{v.name}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.3)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>
+                        ElevenLabs API Key <span style={{ color: "rgba(255,255,255,.15)", fontWeight: 400 }}>(Optional - for premium voices)</span>
+                      </div>
+                      <input
+                        className="lg-glass-input"
+                        type="password"
+                        placeholder="Leave blank to use free browser voice"
+                        value={elevenLabsKey}
+                        onChange={(e) => setElevenLabsKey(e.target.value)}
+                        style={{ fontSize: 12 }}
+                      />
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,.15)", marginTop: 6, lineHeight: 1.4 }}>
+                        Free tier: Browser voice (works immediately). Premium: Natural AI voices from elevenlabs.io.
+                      </div>
+                    </div>
+                  </>
+                )}
                 <div>
                   <div style={{ fontSize: 10, color: "rgba(255,255,255,.3)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Heart Rate</div>
                   {!hrm.supported ? <div style={{ fontSize: 11, color: "rgba(255,255,255,.2)" }}>Bluetooth not available. Use Chrome/Edge or Bluefy on iOS.</div>
