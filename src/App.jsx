@@ -819,6 +819,8 @@ export default function App() {
   const [paused, setPaused] = useState(false);
   const [done, setDone] = useState(false);
   const [bScale, setBScale] = useState(0.7);
+  const orbInnerRef = useRef(null);
+  const orbGlowRef = useRef(null);
   const [stats, setStats] = useState(null);
   const [hrStats, setHRStats] = useState(null);
   const [scaledRounds, setScaledRounds] = useState([]);
@@ -892,8 +894,11 @@ export default function App() {
       } else if (bs.grow) s = Math.min(ss + bs.grow * t, 1.0);
       else if (bs.shrink) s = Math.max(ss - bs.shrink * t, 0.4);
       bRef.current = s;
-      setBScale(s);
+      // Update DOM directly for smooth animation
+      if (orbInnerRef.current) orbInnerRef.current.style.transform = `scale(${s})`;
+      if (orbGlowRef.current) orbGlowRef.current.style.transform = `scale(${s * 1.15})`;
       if (t < 1) raf = requestAnimationFrame(anim);
+      else setBScale(s); // Only update React state at end of animation
     };
     raf = requestAnimationFrame(anim);
     return () => cancelAnimationFrame(raf);
@@ -1968,12 +1973,13 @@ export default function App() {
                   position: "absolute", inset: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <div style={{
+                  <div ref={orbGlowRef} style={{
                     width: 220, height: 220, borderRadius: "50%",
                     transform: `scale(${bScale * 1.15})`,
                     background: ps.g, filter: "blur(60px)", opacity: 0.4,
                     animation: (cs && (cs.p === "Hold" || cs.p === "Empty Hold")) ? "glowPulse 2s ease-in-out infinite" : "none",
-                    transition: paused ? "none" : "transform .5s ease-out, background .5s",
+                    transition: paused ? "none" : "background .5s",
+                    willChange: "transform",
                   }} />
                 </div>
                 {/* Inner glass orb */}
@@ -1981,7 +1987,7 @@ export default function App() {
                   position: "absolute", inset: 0,
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <div style={{
+                  <div ref={orbInnerRef} style={{
                     width: 180, height: 180, borderRadius: "50%",
                     transform: `scale(${bScale})`,
                     background: `radial-gradient(ellipse at 35% 25%, rgba(255,255,255,.1), transparent 60%), radial-gradient(ellipse at 65% 75%, ${ps.g}, transparent 50%), rgba(255,255,255,.025)`,
@@ -1989,7 +1995,6 @@ export default function App() {
                     WebkitBackdropFilter: "blur(40px) saturate(1.8)",
                     border: `1px solid ${ps.r}18`,
                     boxShadow: `inset 0 2px 0 rgba(255,255,255,.1), inset 0 -2px 4px rgba(0,0,0,.15), 0 0 80px ${ps.g}, 0 20px 60px rgba(0,0,0,.3)`,
-                    transition: paused ? "none" : "transform .3s ease-out",
                     willChange: "transform",
                   }} />
                 </div>
