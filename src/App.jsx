@@ -1049,7 +1049,7 @@ export default function App() {
 
   const cs = scaledRounds.length ? scaledRounds[si] : null;
   const ps = cs ? PC[cs.p] || PC.Hold : PC.Hold;
-  const prog = cs ? 1 - tr / cs.d : 0;
+  const prog = cs ? Math.min(1, (cs.d - tr + 1) / cs.d) : 0;
   const circ = 2 * Math.PI * 120;
   const off = circ * (1 - prog);
   const diff = DIFFICULTIES[diffIdx];
@@ -1484,9 +1484,9 @@ export default function App() {
               </div>
             </div>
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 700, color: "#fff", lineHeight: 1.1, marginBottom: 12, background: "linear-gradient(135deg, #fff 0%, rgba(78,205,196,.8) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
-              Breathwork<br />Trainer
+              breathWOD
             </h1>
-            <p style={{ fontSize: 13, color: "rgba(255,255,255,.3)", lineHeight: 1.6, maxWidth: 400 }}>Controlled pause progression & respiratory muscle endurance protocols.</p>
+            <p style={{ fontSize: 13, color: "rgba(255,255,255,.3)", lineHeight: 1.6, maxWidth: 400 }}>Daily breathing workouts. Controlled pause progression & respiratory muscle endurance protocols.</p>
           </div>
 
           {/* Tab switcher */}
