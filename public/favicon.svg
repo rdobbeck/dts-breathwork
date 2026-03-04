@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="breath" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4F46E5;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#7C3AED;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Brain lobes geometric representation -->
+  <!-- Left lobe -->
+  <path d="M 20 50 Q 15 30, 30 20 Q 45 15, 50 30 L 50 50 Z"
+        fill="url(#breath)" opacity="0.9"/>
+
+  <!-- Right lobe -->
+  <path d="M 50 50 L 50 30 Q 55 15, 70 20 Q 85 30, 80 50 Z"
+        fill="url(#breath)" opacity="0.9"/>
+
+  <!-- Bottom lobes -->
+  <path d="M 20 50 Q 25 65, 35 70 Q 42 72, 50 65 L 50 50 Z"
+        fill="url(#breath)" opacity="0.7"/>
+
+  <path d="M 50 50 L 50 65 Q 58 72, 65 70 Q 75 65, 80 50 Z"
+        fill="url(#breath)" opacity="0.7"/>
+
+  <!-- Center breathing point -->
+  <circle cx="50" cy="50" r="4" fill="#fff" opacity="0.9">
+    <animate attributeName="r" values="4;6;4" dur="4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.9;1;0.9" dur="4s" repeatCount="indefinite"/>
+  </circle>
+</svg>
