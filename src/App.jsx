@@ -661,6 +661,73 @@ function useSoundEngine() {
   return { setTheme: (t) => { theme.current = t; }, unlock, phaseChange, countdown, countdownGo, complete };
 }
 
+// ── Binaural Beats ──
+const BINAURAL_PRESETS = [
+  { id: "off",   label: "Off",   beatHz: 0,  carrierHz: 200, color: "rgba(255,255,255,.25)", desc: "No entrainment" },
+  { id: "delta", label: "Delta", beatHz: 2,  carrierHz: 200, color: "#a78bfa", desc: "0.5–4 Hz · Deep recovery & sleep" },
+  { id: "theta", label: "Theta", beatHz: 6,  carrierHz: 200, color: "#4ecdc4", desc: "4–8 Hz · Meditation & deep relaxation" },
+  { id: "alpha", label: "Alpha", beatHz: 10, carrierHz: 200, color: "#95e87a", desc: "8–13 Hz · Calm focus & relaxed awareness" },
+  { id: "beta",  label: "Beta",  beatHz: 20, carrierHz: 200, color: "#ffd93d", desc: "13–30 Hz · Alertness & performance" },
+  { id: "gamma", label: "Gamma", beatHz: 40, carrierHz: 200, color: "#ff8c42", desc: "30–100 Hz · Peak state & heightened perception" },
+];
+
+function useBinauralBeats() {
+  const ctx = useRef(null);
+  const leftOsc = useRef(null);
+  const rightOsc = useRef(null);
+  const gainNode = useRef(null);
+  const [active, setActive] = useState(false);
+
+  const getCtx = useCallback(() => {
+    if (!ctx.current) ctx.current = new (window.AudioContext || window.webkitAudioContext)();
+    if (ctx.current.state === "suspended") ctx.current.resume();
+    return ctx.current;
+  }, []);
+
+  const stop = useCallback(() => {
+    try { leftOsc.current?.stop(); } catch (e) {}
+    try { rightOsc.current?.stop(); } catch (e) {}
+    leftOsc.current = null;
+    rightOsc.current = null;
+    gainNode.current = null;
+    setActive(false);
+  }, []);
+
+  const start = useCallback((carrierHz, beatHz, volume = 0.07) => {
+    stop();
+    if (beatHz === 0) return;
+    try {
+      const c = getCtx();
+      const master = c.createGain();
+      master.gain.value = volume;
+      master.connect(c.destination);
+      gainNode.current = master;
+
+      const lo = c.createOscillator();
+      const lp = c.createStereoPanner();
+      lo.type = "sine"; lo.frequency.value = carrierHz;
+      lp.pan.value = -1;
+      lo.connect(lp); lp.connect(master); lo.start();
+      leftOsc.current = lo;
+
+      const ro = c.createOscillator();
+      const rp = c.createStereoPanner();
+      ro.type = "sine"; ro.frequency.value = carrierHz + beatHz;
+      rp.pan.value = 1;
+      ro.connect(rp); rp.connect(master); ro.start();
+      rightOsc.current = ro;
+
+      setActive(true);
+    } catch (e) {}
+  }, [getCtx, stop]);
+
+  const setVolume = useCallback((v) => {
+    if (gainNode.current) gainNode.current.gain.value = v;
+  }, []);
+
+  return { start, stop, active, setVolume };
+}
+
 function useHeartRate() {
   const [hr, setHR] = useState(null);
   const [connected, setConnected] = useState(false);
@@ -870,6 +937,9 @@ export default function App() {
   const runRef = useRef(false);
   const pauseRef = useRef(false);
   const sound = useSoundEngine();
+  const binaural = useBinauralBeats();
+  const [binauralId, setBinauralId] = useState("off");
+  const [binauralVol, setBinauralVol] = useState(0.07);
   const { saveSession, getRecord } = useProgress();
   const hrm = useHeartRate();
   const { customs, addExercise, updateExercise, deleteExercise } = useCustomExercises();
@@ -965,6 +1035,7 @@ export default function App() {
           if (hrmRef.current.connected && startT.current) setHRStats(hrmRef.current.getSessionStats(startT.current));
           if (selExRef.current) saveSession(selExRef.current.id, DIFFICULTIES[diffIdxRef.current].label, st);
           soundRef.current.complete();
+          binaural.stop();
           haptic("done");
           return;
         }
@@ -1058,6 +1129,8 @@ export default function App() {
           setScreen("timer");
           soundRef.current.phaseChange();
           haptic("phase");
+          const bp = BINAURAL_PRESETS.find(p => p.id === binauralId);
+          if (bp && bp.beatHz > 0) binaural.start(bp.carrierHz, bp.beatHz, binauralVol);
         }, 600);
       }
     }, 1000);
@@ -1080,7 +1153,7 @@ export default function App() {
     setScreen("preview");
   }
   function beginCountdown() { sound.unlock(); setScreen("countdown"); }
-  function stop() { clearInterval(iv.current); runRef.current = false; pauseRef.current = false; setRunning(false); setPaused(false); setDone(false); setStats(null); setHRStats(null); setPosAlert(null); if (posMode) setMenuTab("positional"); setScreen("menu"); }
+  function stop() { clearInterval(iv.current); runRef.current = false; pauseRef.current = false; setRunning(false); setPaused(false); setDone(false); setStats(null); setHRStats(null); setPosAlert(null); binaural.stop(); if (posMode) setMenuTab("positional"); setScreen("menu"); }
   function backToMenu() { if (posMode) setMenuTab("positional"); setScreen("menu"); }
   function togglePause() { setPaused((p) => { const np = !p; pauseRef.current = np; return np; }); }
   function openBuilder(editEx) {
@@ -1580,6 +1653,11 @@ export default function App() {
               color: menuTab === "positional" ? "#ff6b9d" : "rgba(255,255,255,.3)",
               borderColor: menuTab === "positional" ? "rgba(255,107,157,.2)" : "rgba(255,255,255,.05)",
             }}>Positional Lab</button>
+            <button className="menu-tab" onClick={() => setMenuTab("learn")} style={{
+              background: menuTab === "learn" ? "rgba(167,139,250,.1)" : "rgba(255,255,255,.02)",
+              color: menuTab === "learn" ? "#a78bfa" : "rgba(255,255,255,.3)",
+              borderColor: menuTab === "learn" ? "rgba(167,139,250,.2)" : "rgba(255,255,255,.05)",
+            }}>Learn</button>
           </div>
 
           {menuTab === "protocols" && (<>
@@ -1640,6 +1718,34 @@ export default function App() {
                     </div>
                   </div>
                 )}
+
+                {/* Binaural Beats */}
+                <div>
+                  <div style={{ fontSize: 10, color: "rgba(255,255,255,.3)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Binaural Beats <span style={{ color: "rgba(255,255,255,.15)", fontWeight: 400 }}>— use headphones</span></div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
+                    {BINAURAL_PRESETS.map((bp) => (
+                      <button key={bp.id} className="sound-pill" onClick={() => setBinauralId(bp.id)} style={{
+                        background: binauralId === bp.id ? bp.color + "18" : "rgba(255,255,255,.02)",
+                        color: binauralId === bp.id ? bp.color : "rgba(255,255,255,.3)",
+                        borderColor: binauralId === bp.id ? bp.color + "40" : "rgba(255,255,255,.05)",
+                        fontWeight: binauralId === bp.id ? 600 : 400,
+                      }}>{bp.label}</button>
+                    ))}
+                  </div>
+                  {binauralId !== "off" && (
+                    <div style={{ fontSize: 11, color: "rgba(255,255,255,.25)", lineHeight: 1.5, marginBottom: 8 }}>
+                      {BINAURAL_PRESETS.find(p => p.id === binauralId)?.desc}
+                    </div>
+                  )}
+                  {binauralId !== "off" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontSize: 10, color: "rgba(255,255,255,.2)", letterSpacing: 1 }}>VOL</span>
+                      <input type="range" min="0.01" max="0.2" step="0.01" value={binauralVol}
+                        onChange={(e) => { const v = parseFloat(e.target.value); setBinauralVol(v); binaural.setVolume(v); }}
+                        style={{ flex: 1, accentColor: BINAURAL_PRESETS.find(p => p.id === binauralId)?.color || "#4ecdc4" }} />
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1765,6 +1871,111 @@ export default function App() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* ═══════════════ LEARN ═══════════════ */}
+          {menuTab === "learn" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingBottom: 16 }}>
+
+              {/* Binaural Beats */}
+              <div className="lg-glass-sm" style={{ padding: 20 }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: "#a78bfa", marginBottom: 4, letterSpacing: .5 }}>Binaural Beats</div>
+                <div style={{ fontSize: 10, color: "rgba(167,139,250,.6)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>Brainwave Entrainment</div>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,.4)", lineHeight: 1.7, marginBottom: 14 }}>
+                  When two slightly different frequencies are played into each ear, your brain produces a third "phantom" beat at the difference — and naturally synchronises to it. This is called the <strong style={{ color: "rgba(255,255,255,.7)" }}>frequency following response</strong>.
+                </p>
+                <p style={{ fontSize: 12, color: "rgba(255,255,255,.3)", lineHeight: 1.6, marginBottom: 16 }}>
+                  Oster (1973) first documented the neurological basis. Modern fMRI research (Wahbeh et al., 2007; Jirakittayakorn & Wongsawat, 2017) confirms measurable EEG synchronisation within 7 minutes of exposure. <strong style={{ color: "rgba(255,255,255,.5)" }}>Always use headphones</strong> — the effect requires each tone to reach only one ear.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[
+                    { label: "Delta", hz: "0.5–4 Hz", color: "#a78bfa", use: "Deep recovery, sleep, tissue repair. Ideal after high-intensity training or injury.", research: "Increased HGH release during delta sleep (Van Cauter et al., 2000)" },
+                    { label: "Theta", hz: "4–8 Hz", color: "#4ecdc4", use: "Deep meditation, flow state, emotional processing. Best for recovery breathwork.", research: "Theta dominates during REM and expert meditators (Aftanas & Golocheikine, 2001)" },
+                    { label: "Alpha", hz: "8–13 Hz", color: "#95e87a", use: "Relaxed alertness. The 'zone' between active and idle. Excellent during breath training.", research: "Alpha increases with eyes-closed diaphragmatic breathing (Fumoto et al., 2004)" },
+                    { label: "Beta", hz: "13–30 Hz", color: "#ffd93d", use: "Active focus, arousal, pre-performance priming. Use before a heavy lifting session.", research: "Beta linked to motor readiness and attention (Engel & Fries, 2010)" },
+                    { label: "Gamma", hz: "30–100 Hz", color: "#ff8c42", use: "Peak cognitive performance, cross-sensory binding, heightened perception.", research: "40 Hz gamma associated with top-down attention and conscious awareness (Buzsáki, 2006)" },
+                  ].map(bw => (
+                    <div key={bw.label} style={{ padding: "12px 14px", borderRadius: 10, background: bw.color + "08", border: "1px solid " + bw.color + "18" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: bw.color }}>{bw.label}</span>
+                        <span style={{ fontSize: 10, color: bw.color, opacity: 0.6, letterSpacing: 1 }}>{bw.hz}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: "rgba(255,255,255,.45)", lineHeight: 1.5, margin: "0 0 4px" }}>{bw.use}</p>
+                      <p style={{ fontSize: 10, color: "rgba(255,255,255,.2)", lineHeight: 1.4, margin: 0, fontStyle: "italic" }}>{bw.research}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Solfeggio Frequencies */}
+              <div className="lg-glass-sm" style={{ padding: 20 }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: "#4ecdc4", marginBottom: 4, letterSpacing: .5 }}>Solfeggio Frequencies</div>
+                <div style={{ fontSize: 10, color: "rgba(78,205,196,.6)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>Used in Bowls Sound Mode</div>
+                <p style={{ fontSize: 13, color: "rgba(255,255,255,.4)", lineHeight: 1.7, marginBottom: 14 }}>
+                  The Bowls sound theme in breathWOD uses specific solfeggio frequencies — a set of ancient tonal frequencies used in Gregorian chant, rediscovered in the 1990s by Dr. Joseph Puleo. Each frequency is associated with a specific physiological or psychological effect.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    { hz: "396 Hz", color: "#95e87a", role: "Phase start tone", effect: "Liberating guilt and fear. Grounding and centering." },
+                    { hz: "528 Hz", color: "#4ecdc4", role: "Phase completion tone", effect: "Often called the 'miracle tone'. Associated with DNA repair and transformation. Used in phase transitions to signal completion." },
+                    { hz: "440 Hz", color: "#ffd93d", role: "Countdown (beeps mode)", effect: "Standard concert pitch. Clear, neutral alerting tone." },
+                    { hz: "523 / 659 / 784 Hz", color: "#ff8c42", role: "Session complete chord", effect: "C major triad (C5–E5–G5). Universally recognised as resolution and completion." },
+                  ].map(sf => (
+                    <div key={sf.hz} style={{ padding: "10px 12px", borderRadius: 10, background: sf.color + "06", border: "1px solid " + sf.color + "15" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                        <span style={{ fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: sf.color }}>{sf.hz}</span>
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,.25)", letterSpacing: 1 }}>{sf.role}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: "rgba(255,255,255,.35)", lineHeight: 1.5, margin: 0 }}>{sf.effect}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Breathing + Brainwaves */}
+              <div className="lg-glass-sm" style={{ padding: 20 }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: "#ff6b9d", marginBottom: 4, letterSpacing: .5 }}>Breathing & Brainwaves</div>
+                <div style={{ fontSize: 10, color: "rgba(255,107,157,.6)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>Why They Work Together</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {[
+                    { title: "Slow breathing entrains alpha", body: "Paced breathing at 5–6 breaths/min (0.1 Hz) increases HRV and shifts EEG toward alpha dominance. This is the mechanism behind HRV biofeedback and coherent breathing. (Lehrer et al., 2003)" },
+                    { title: "CO₂ tolerance and focus", body: "Elevated CO₂ tolerance — trained through the controlled pause tables — delays sympathetic activation. This allows you to maintain beta/alpha states longer under physical and cognitive stress." },
+                    { title: "Diaphragmatic breathing activates the vagus nerve", body: "Deep diaphragmatic breathing mechanically stimulates vagal afferents, directly increasing parasympathetic tone and promoting theta/alpha brainwave patterns. (Jerath et al., 2006)" },
+                    { title: "Bracing and cortical arousal", body: "The Valsalva manoeuvre and intra-abdominal pressure bracing used in strength training briefly spike beta/gamma cortical arousal — coordinating motor output and protecting the spine simultaneously." },
+                  ].map(item => (
+                    <div key={item.title} style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,107,157,.04)", border: "1px solid rgba(255,107,157,.1)" }}>
+                      <div style={{ fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 600, color: "rgba(255,107,157,.8)", marginBottom: 4 }}>{item.title}</div>
+                      <p style={{ fontSize: 12, color: "rgba(255,255,255,.35)", lineHeight: 1.6, margin: 0 }}>{item.body}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Pairing Guide */}
+              <div className="lg-glass-sm" style={{ padding: 20 }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: "#ffd93d", marginBottom: 4, letterSpacing: .5 }}>Protocol Pairing Guide</div>
+                <div style={{ fontSize: 10, color: "rgba(255,217,61,.6)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 12 }}>Recommended Combinations</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[
+                    { protocol: "CO₂ / O₂ Tables", state: "Alpha", color: "#95e87a", reason: "Calm focus reduces anxiety during breath holds and improves hold duration." },
+                    { protocol: "Diaphragmatic Endurance", state: "Theta", color: "#4ecdc4", reason: "Deep relaxation allows fuller diaphragmatic range and better proprioceptive feedback." },
+                    { protocol: "Intercostal Blaster", state: "Beta", color: "#ffd93d", reason: "Heightened arousal matches the high-effort, rapid segmented breathing demands." },
+                    { protocol: "Vacuum Hold", state: "Theta / Delta", color: "#a78bfa", reason: "Extended emptied holds are easier to sustain in low-arousal, meditative states." },
+                    { protocol: "Pre-Lift Bracing", state: "Beta", color: "#ffd93d", reason: "Beta primes motor cortex and alertness for heavy loading." },
+                    { protocol: "Recovery / Cool-down", state: "Delta", color: "#a78bfa", reason: "Deep recovery states accelerate parasympathetic rebound post-exercise." },
+                  ].map(pair => (
+                    <div key={pair.protocol} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: "var(--font-display)", fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,.6)", marginBottom: 2 }}>{pair.protocol}</div>
+                        <div style={{ fontSize: 11, color: "rgba(255,255,255,.25)", lineHeight: 1.4 }}>{pair.reason}</div>
+                      </div>
+                      <span style={{ fontFamily: "var(--font-display)", fontSize: 11, fontWeight: 700, color: pair.color, background: pair.color + "12", padding: "4px 10px", borderRadius: 6, whiteSpace: "nowrap" }}>{pair.state}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
             </div>
           )}
 
