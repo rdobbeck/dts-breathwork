@@ -6,6 +6,7 @@ const BUILT_IN = [
   {
     id: "co2",
     name: "CO\u2082 Tolerance Table",
+    premium: true,
     desc: "Progressive breath holds with decreasing rest. Builds CO\u2082 tolerance and mental resilience.",
     target: "Controlled Pauses",
     diff: "Advanced",
@@ -23,6 +24,7 @@ const BUILT_IN = [
   {
     id: "o2",
     name: "O\u2082 Depletion Table",
+    premium: true,
     desc: "Increasing breath holds with fixed rest. Trains performance under low oxygen.",
     target: "Controlled Pauses",
     diff: "Advanced+",
@@ -55,6 +57,7 @@ const BUILT_IN = [
   {
     id: "inter",
     name: "Intercostal Blaster",
+    premium: true,
     desc: "Rapid segmented breathing with holds at partial lung volumes.",
     target: "Respiratory Musculature",
     diff: "Advanced+",
@@ -80,6 +83,7 @@ const BUILT_IN = [
   {
     id: "vac",
     name: "Exhale Packing & Vacuum Hold",
+    premium: true,
     desc: "Extended exhales into residual volume with vacuum holds.",
     target: "Both",
     diff: "Elite",
@@ -809,7 +813,21 @@ function HRBadge({ hr, maxHR }) {
 // ── MAIN APP WITH LIQUID GLASS ──
 // ══════════════════════════════════
 export default function App() {
-  const { isSignedIn, isLoaded } = useUser();
+  const { isSignedIn, isLoaded, user } = useUser();
+  const isPremium = true; // Paywall disabled — flip to user?.publicMetadata?.isPremium === true when ready
+
+  async function startCheckout() {
+    const res = await fetch('/api/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user.id,
+        email: user.primaryEmailAddress?.emailAddress,
+      }),
+    });
+    const { url } = await res.json();
+    if (url) window.location.href = url;
+  }
   const [screen, setScreen] = useState("menu");
   const [selEx, setSelEx] = useState(null);
   const [diffIdx, setDiffIdx] = useState(1);
@@ -1632,8 +1650,10 @@ export default function App() {
               const rec = getRecord(ex.id, diff.label);
               const st = scaleRounds(ex.rounds, diff.mult).reduce((a, r) => a + r.d, 0);
               const isC = ex.custom;
+              const locked = ex.premium && !isPremium;
               return (
-                <div key={ex.id} className="lg-glass ex-card" onClick={() => selectExercise(ex)}>
+                <div key={ex.id} className="lg-glass ex-card" onClick={() => locked ? startCheckout() : selectExercise(ex)} style={{ opacity: locked ? 0.7 : 1, position: "relative" }}>
+                  {locked && <div style={{ position: "absolute", top: 10, right: 10, fontSize: 16, zIndex: 2 }}>🔒</div>}
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10, position: "relative", zIndex: 1 }}>
                     <h3 style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 600, color: "#fff", flex: 1 }}>{ex.name}</h3>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -1670,11 +1690,21 @@ export default function App() {
               );
             })}
             {/* Create protocol card */}
-            <div className="lg-glass ex-card" onClick={() => openBuilder(null)} style={{ borderStyle: "dashed", borderColor: "rgba(78,205,196,.12)", textAlign: "center" }}>
+            <div className="lg-glass ex-card" onClick={() => isPremium ? openBuilder(null) : startCheckout()} style={{ borderStyle: "dashed", borderColor: "rgba(78,205,196,.12)", textAlign: "center", opacity: isPremium ? 1 : 0.7, position: "relative" }}>
+              {!isPremium && <div style={{ position: "absolute", top: 10, right: 10, fontSize: 16, zIndex: 2 }}>🔒</div>}
               <div style={{ fontFamily: "var(--font-display)", fontSize: 24, color: "#4ecdc4", marginBottom: 4, position: "relative", zIndex: 1 }}>+</div>
               <div style={{ fontFamily: "var(--font-display)", fontSize: 14, fontWeight: 600, color: "#4ecdc4", letterSpacing: 1, position: "relative", zIndex: 1 }}>Create Protocol</div>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,.2)", marginTop: 4, position: "relative", zIndex: 1 }}>Build your own breathwork sequence</div>
             </div>
+
+            {/* Go Premium banner */}
+            {!isPremium && (
+              <div onClick={startCheckout} style={{ cursor: "pointer", marginTop: 8, padding: "18px 20px", borderRadius: 16, background: "linear-gradient(135deg, rgba(78,205,196,.1) 0%, rgba(167,139,250,.1) 100%)", border: "1px solid rgba(78,205,196,.2)", textAlign: "center" }}>
+                <div style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Unlock All Protocols</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,.4)", marginBottom: 12 }}>CO₂ tables, O₂ depletion, intercostal training + custom builder</div>
+                <div style={{ display: "inline-block", padding: "8px 24px", borderRadius: 8, background: "linear-gradient(135deg, #4ecdc4, #a78bfa)", fontFamily: "var(--font-display)", fontSize: 13, fontWeight: 700, color: "#000" }}>Go Premium — $19.99/mo</div>
+              </div>
+            )}
           </div>
           </>)}
 
@@ -1703,13 +1733,15 @@ export default function App() {
               </div>
               {/* Session cards */}
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {POSITIONAL_SESSIONS.filter(s => posCat === "all" || s.category === posCat).map(sess => {
+                {POSITIONAL_SESSIONS.filter(s => posCat === "all" || s.category === posCat).map((sess, idx) => {
                   const cc = POS_CAT_COLORS[sess.category] || "#4ecdc4";
                   const totalTime = sess.phases.reduce((a, p) => a + p.d, 0);
                   const zones = [...new Set(sess.phases.map(p => p.zone).filter(Boolean))];
                   const positions = [...new Set(sess.phases.map(p => p.position || sess.position).filter(Boolean))];
+                  const locked = !isPremium && idx > 0;
                   return (
-                    <div key={sess.id} className="lg-glass pos-card" onClick={() => selectPositional(sess)}>
+                    <div key={sess.id} className="lg-glass pos-card" onClick={() => locked ? startCheckout() : selectPositional(sess)} style={{ opacity: locked ? 0.7 : 1, position: "relative" }}>
+                      {locked && <div style={{ position: "absolute", top: 10, right: 10, fontSize: 16, zIndex: 2 }}>🔒</div>}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8, position: "relative", zIndex: 1 }}>
                         <h3 style={{ fontFamily: "var(--font-display)", fontSize: 15, fontWeight: 600, color: "#fff", flex: 1 }}>{sess.name}</h3>
                         <span style={{ fontSize: 12, color: "rgba(255,255,255,.25)", whiteSpace: "nowrap" }}>{fmt(totalTime)}</span>
