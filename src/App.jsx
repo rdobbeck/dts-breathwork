@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useUser, SignIn, UserButton } from "@clerk/react";
 
 // ── Data ──
 const BUILT_IN = [
@@ -808,6 +809,7 @@ function HRBadge({ hr, maxHR }) {
 // ── MAIN APP WITH LIQUID GLASS ──
 // ══════════════════════════════════
 export default function App() {
+  const { isSignedIn, isLoaded } = useUser();
   const [screen, setScreen] = useState("menu");
   const [selEx, setSelEx] = useState(null);
   const [diffIdx, setDiffIdx] = useState(1);
@@ -1101,6 +1103,23 @@ export default function App() {
   const previewMaxHold = previewHolds.length ? Math.max(...previewHolds.map((r) => r.d)) : 0;
   const builderTotal = bPhases.reduce((a, p) => a + p.d, 0);
 
+  if (!isLoaded) return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#050510 0%,#0a0a1a 30%,#0d0d20 60%,#080818 100%)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: 40, height: 40, borderRadius: "50%", border: "2px solid rgba(78,205,196,.3)", borderTopColor: "#4ecdc4", animation: "spin 1s linear infinite" }} />
+    </div>
+  );
+
+  if (!isSignedIn) return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(160deg,#050510 0%,#0a0a1a 30%,#0d0d20 60%,#080818 100%)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", fontFamily: "'JetBrains Mono', monospace", padding: "24px" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700&display=swap'); @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div style={{ marginBottom: 32, textAlign: "center" }}>
+        <h1 style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 40, fontWeight: 700, margin: "0 0 8px", background: "linear-gradient(135deg, #fff 0%, rgba(78,205,196,.8) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>breathWOD</h1>
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,.35)", margin: 0 }}>Daily breathing workouts by Dobbeck Training Systems</p>
+      </div>
+      <SignIn routing="hash" />
+    </div>
+  );
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -1213,6 +1232,7 @@ export default function App() {
 
         /* ═══ ANIMATIONS ═══ */
         @keyframes fadeUp { from { opacity:0; transform:translateY(20px) } to { opacity:1; transform:translateY(0) } }
+        @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes glowPulse { 0%,100% { opacity:.3 } 50% { opacity:.7 } }
         @keyframes statPop { from { opacity:0; transform:scale(.9) translateY(10px) } to { opacity:1; transform:scale(1) translateY(0) } }
         @keyframes hrPulse { 0%,100% { transform:scale(1) } 50% { transform:scale(1.15) } }
@@ -1507,7 +1527,7 @@ export default function App() {
         <div style={{ maxWidth: 640, margin: "0 auto", padding: "48px 24px", animation: "fadeUp .5s ease-out", position: "relative", zIndex: 1 }}>
           {/* Brand header */}
           <div style={{ marginBottom: 32 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24, justifyContent: "space-between" }}>
               <div className="lg-glass-sm" style={{ width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(78,205,196,.06)", borderColor: "rgba(78,205,196,.15)" }}>
                 <svg width="20" height="20" viewBox="0 0 48 48" fill="none">
                   <defs><linearGradient id="dtsLogo" x1="24" y1="2" x2="24" y2="46" gradientUnits="userSpaceOnUse"><stop offset="0%" stopColor="#7af5ec"/><stop offset="100%" stopColor="#0a3d3a"/></linearGradient></defs>
@@ -1518,10 +1538,11 @@ export default function App() {
                   <rect x="26" y="33" width="16" height="12" rx="5" fill="url(#dtsLogo)" opacity="0.42" transform="rotate(3 34 39)"/>
                 </svg>
               </div>
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 16, fontWeight: 700, color: "#fff", letterSpacing: 1, lineHeight: 1.2 }}>DOBBECK</div>
                 <div style={{ fontFamily: "var(--font-display)", fontSize: 9, fontWeight: 500, color: "rgba(78,205,196,.8)", letterSpacing: 3, textTransform: "uppercase" }}>Training Systems</div>
               </div>
+              <UserButton />
             </div>
             <h1 style={{ fontFamily: "var(--font-display)", fontSize: 36, fontWeight: 700, color: "#fff", lineHeight: 1.1, marginBottom: 12, background: "linear-gradient(135deg, #fff 0%, rgba(78,205,196,.8) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
               breathWOD
